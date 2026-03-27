@@ -1,0 +1,13 @@
+name: btcusdt-perp-signals
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.9
+  - pandas
+  - numpy
+  - matplotlib
+  - scipy
+  - statsmodels
+  - jupyter
+  - pyarrow          # parquet file support
