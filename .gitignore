@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local tools
+.claude/
+
+# Data (CRITICAL)
+dataset/
+
+# Logs & runtime files
+*.log
+*.pid
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# Misc
+*.zip
+*.tar
+*.gz

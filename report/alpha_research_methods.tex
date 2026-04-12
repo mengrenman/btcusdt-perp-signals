@@ -1,0 +1,624 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{parskip}
+\usepackage{xcolor}
+
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black}
+
+\title{Methods in Short-Horizon Alpha Research:\\
+From Statistical Arbitrage to Microstructure Signals}
+\author{Mengren Man}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This article surveys the principal methods used in short-horizon alpha
+research for systematic trading, with emphasis on cryptocurrency
+perpetual futures. We cover five broad families of approach:
+(1)~mean-reversion and statistical arbitrage via cointegration and
+PCA residualization, (2)~microstructure signal extraction from
+trade-and-quote data, (3)~information-theoretic bar construction,
+(4)~signal combination and portfolio-level stacking, and
+(5)~cost-aware backtesting and the economics of edge.
+Each section states the core idea, the mathematical formulation,
+the practical considerations, and the key references.
+The presentation is grounded in concrete examples drawn from
+BTCUSDT perpetual futures on Binance.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%% ================================================================
+\section{Introduction}
+
+Alpha research is the process of identifying predictable structure in
+asset returns that can be translated into a profitable trading strategy.
+At short horizons---seconds to tens of minutes---the relevant structure
+is primarily \emph{microstructural}: patterns in order flow, quote
+dynamics, and cross-asset co-movements that arise from the mechanics of
+how markets clear, rather than from macroeconomic fundamentals.
+
+The central challenge at short horizons is that per-trade edge is
+small---typically $0.1$--$5$ basis points (bps) per round-trip---and
+must be weighed against transaction costs (exchange fees, spread
+crossing, market impact) that can easily exceed the edge itself.
+Successful short-horizon trading therefore requires not only signal
+discovery but also careful cost modelling, signal stacking for
+diversification, and execution optimization.
+
+This article surveys the principal methods in the field, organized by
+the stage of the research pipeline in which they appear.
+
+%% ================================================================
+\section{Mean-Reversion and Statistical Arbitrage}
+
+\subsection{The core idea}
+
+Mean-reversion alpha rests on the observation that certain price
+processes---or, more precisely, certain \emph{functions} of
+prices---tend to revert toward a long-run mean. When the process
+deviates above its mean, the expected next move is downward (and vice
+versa). The alpha is the ability to predict the \emph{sign} of the
+next move from the current deviation.
+
+\subsection{Pairs trading and cointegration}
+
+The simplest setting is two co-moving assets $X_t$ and $Y_t$ whose
+prices are individually non-stationary (random walks) but whose
+linear combination
+\begin{equation}
+  s_t = Y_t - \beta X_t
+\end{equation}
+is stationary. This is the definition of \emph{cointegration}
+\citep{engle1987cointegration}. The stationary spread $s_t$ mean-reverts,
+and the standard signal is its z-score:
+\begin{equation}
+  z_t = \frac{s_t - \mu_s}{\sigma_s}
+\end{equation}
+where $\mu_s$ and $\sigma_s$ are rolling estimates of the spread's mean
+and standard deviation. The trading rule is: go long the spread when
+$z_t \ll 0$ (spread is cheap), go short when $z_t \gg 0$.
+
+\paragraph{Practical considerations.}
+The hedge ratio $\beta$ is not constant. In practice it is estimated
+via rolling OLS, or---more elegantly---via a \textbf{Kalman filter}
+\citep{hamilton1994time}, which allows $\beta_t$ to evolve as a latent
+state. The Kalman filter simultaneously estimates the current spread
+and the uncertainty around $\beta_t$, providing a natural measure of
+regime stability.
+
+\subsection{PCA residualization (Avellaneda--Lee)}
+\label{sec:avellaneda}
+
+Pairs trading is the two-asset special case of a more general
+framework: \textbf{statistical arbitrage via factor residualization}
+\citep{avellaneda2010statistical}. Given a panel of $N$ asset returns
+$R_{it}$:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Perform PCA on the standardized return matrix. The first $K$
+        principal components capture the common factors (market beta,
+        sector, etc.).
+  \item For each asset $i$, regress its returns on the retained PCs:
+        \begin{equation}
+          R_{it} = \sum_{k=1}^{K} \beta_{ik}\, \mathrm{PC}_{kt} + \varepsilon_{it}
+        \end{equation}
+  \item The residual $\varepsilon_{it}$ is the ``idiosyncratic'' return,
+        stripped of common factor exposure.
+  \item If $\varepsilon_{it}$ is mean-reverting (negative lag-1
+        autocorrelation), trade the z-score of its cumulative sum
+        (the ``s-score'' in Avellaneda--Lee terminology).
+\end{enumerate}
+
+This construction generalizes pairs trading in two ways: it handles
+$N > 2$ assets simultaneously, and it strips \emph{all} dominant factors
+(not just a single co-movement) before testing for mean-reversion.
+
+\paragraph{Application to crypto.}
+On a panel of BTC/ETH/SOL USDT perpetual futures, PC1 typically explains
+$\sim$85\% of joint variance and is interpretable as the common ``crypto
+market'' factor. After stripping PC1, the BTC residual exhibits lag-1
+autocorrelation of $\rho_1 \approx -0.11$ to $-0.13$---significantly
+more negative than the raw BTC return ($\rho_1 \approx 0$)---confirming
+that the idiosyncratic component is more mean-reverting than the
+total return.
+
+\subsection{Ornstein--Uhlenbeck modelling}
+
+The continuous-time analog of a discrete mean-reverting process is the
+\textbf{Ornstein--Uhlenbeck (OU) process}:
+\begin{equation}
+  ds_t = \kappa\,(\theta - s_t)\,dt + \sigma\,dW_t
+\end{equation}
+where $\kappa > 0$ is the rate of mean-reversion, $\theta$ is the
+long-run mean, and $\sigma$ is the diffusion coefficient. The OU
+framework provides:
+\begin{itemize}[leftmargin=1.5em]
+  \item A \textbf{half-life} of mean-reversion: $t_{1/2} = \ln(2)/\kappa$.
+  \item An \textbf{optimal entry/exit threshold} via dynamic programming
+        \citep{leung2015optimal}.
+  \item A natural connection to the Kalman filter: the OU process is a
+        continuous-time AR(1), and the Kalman filter is the optimal
+        recursive estimator for its parameters.
+\end{itemize}
+
+%% ================================================================
+\section{Microstructure Signal Extraction}
+
+At horizons below $\sim$1 minute, the dominant source of predictability
+shifts from price-level patterns to \textbf{trade-and-quote dynamics}.
+The key objects are the \emph{trade tape} (a timestamped sequence of
+prices, quantities, and aggressor sides) and the \emph{order book}
+(the standing bid and ask queues).
+
+\subsection{Trade-sign autocorrelation}
+\label{sec:sign-acf}
+
+The aggressor sign of trade $t$ is $\epsilon_t \in \{-1, +1\}$
+(seller-initiated or buyer-initiated). In equity markets, the
+autocorrelation function of $\epsilon_t$ in \emph{trade time}
+typically exhibits a slow, power-law decay:
+\begin{equation}
+  \rho_k \sim k^{-\gamma}, \qquad \gamma \in [0.5,\, 1.0]
+  \label{eq:sign-acf}
+\end{equation}
+This long-memory signature reflects the prevalence of
+\textbf{order-splitting}: large (institutional) orders are broken into
+many child orders executed over time, creating persistent signed flow
+\citep{lillo2004long, bouchaud2009markets}.
+
+\paragraph{Empirical finding on crypto perps.}
+On 7 days of BTCUSDT aggTrades, we observe $\rho_1 = +0.63$ with a
+fitted decay $\gamma = 0.78$---squarely within the equity-literature
+range. ETHUSDT shows $\rho_1 = +0.50$, $\gamma = 0.99$. SOLUSDT, being
+less liquid (271\,ms mean inter-arrival vs.\ 66\,ms for BTC), shows the
+opposite pattern at lag 1: $\rho_1 = -0.16$, the \textbf{bid--ask-bounce}
+signature. Two distinct microstructure regimes are cleanly separated by
+liquidity.
+
+\subsection{Order flow imbalance (OFI)}
+
+Aggregating signed trade volume over a short window gives the
+\textbf{order flow imbalance}:
+\begin{equation}
+  \mathrm{OFI}_t = \sum_{i \in \text{window}} \epsilon_i \cdot q_i
+\end{equation}
+where $q_i$ is the quantity of trade $i$. OFI is a measure of net
+buying or selling pressure. Its predictive content for future returns
+has been documented extensively
+\citep{cont2014price, cartea2015algorithmic}.
+
+In a mean-reversion context, OFI is used as a \textbf{contrarian}
+signal: excess buying pressure ($\mathrm{OFI} \gg 0$) is expected to
+reverse as the transient demand subsides.
+
+\subsection{Price impact}
+\label{sec:impact}
+
+The \textbf{price-impact function} measures how much the mid-price
+moves in response to a signed trade of size $q$:
+\begin{equation}
+  \Delta p \approx \lambda \cdot f(q)
+\end{equation}
+where $\lambda$ is Kyle's lambda \citep{kyle1985continuous} and $f(q)$
+is typically concave (square-root law for large $q$):
+\begin{equation}
+  f(q) \approx \sigma \sqrt{\frac{q}{V}}
+\end{equation}
+with $V$ the average daily volume \citep{bouchaud2009markets,
+almgren2005direct}.
+
+Understanding the impact function is essential for \textbf{cost
+modelling}: any alpha signal that requires market orders will lose
+a portion of its edge to impact, and the loss is a function of order
+size. This is why the per-turn edge ($\sim$0.1--0.25~bps for a typical
+mean-reversion signal on BTC) must be compared against the \emph{total}
+cost including impact, not just exchange fees.
+
+\subsection{Trade-clock vs.\ wall-clock sampling}
+
+A recurring theme in microstructure research is that financial time
+flows unevenly. \citet{clark1973subordinated} showed that price
+variance per unit of calendar time is not constant, but scales with
+the number of trades (``subordinated stochastic process''). The
+practical implication: signals computed on \textbf{trade-time} or
+\textbf{volume-time} bars capture more of the predictable structure
+than signals on fixed wall-clock bars.
+
+\paragraph{AR(1) comparison.}
+On BTCUSDT, signed-flow AR(1) $R^2$ peaks at $\sim$0.023 in 5-second
+wall-clock buckets but is $\sim$0.63 at lag-1 in trade-time. The
+difference is striking: aggregating into wall-clock buckets averages
+bursts with quiet periods and destroys most of the signal.
+
+\subsection{Cross-symbol lead--lag}
+
+In multi-asset settings, one asset's order flow may predict another
+asset's price movement with a short delay. The standard diagnostic is
+the \textbf{cross-correlation of signed flow} at sub-second lags.
+
+In crypto markets, the conventional belief is that BTC flow ``leads''
+altcoin flow. Empirically, this is not always detectable at 10--100\,ms
+resolution on the same exchange. The lead may exist at sub-10\,ms
+timescales (relevant for HFT) or in different variables (price rather
+than flow).
+
+%% ================================================================
+\section{Information-Theoretic Bar Construction}
+
+\subsection{Dollar bars and volume bars}
+
+\citet{deprado2018advances} argues that fixed-time bars (e.g., 1-minute
+OHLCV) are a poor sampling scheme for financial data because they treat
+all minutes as containing equal information. Instead, he proposes
+\textbf{information-driven bars}:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Volume bars}: close a bar every $V$ units of base
+        currency traded.
+  \item \textbf{Dollar bars}: close a bar every $\$D$ of notional
+        traded.
+  \item \textbf{Tick bars}: close a bar every $N$ trades.
+\end{itemize}
+
+The motivation: by equalizing the ``information content'' per bar,
+these schemes produce returns that are closer to i.i.d.\ normal,
+which makes statistical tests (autocorrelation, z-scores) more
+reliable.
+
+\subsection{Empirical test}
+
+On 7 days of BTCUSDT aggTrades, \$5M dollar bars produce a BTC
+residual with lag-1 autocorrelation $\rho_1 = -0.13$ (vs.\ $-0.11$ on
+1-minute time bars). The signal concentrates slightly, validating the
+hypothesis, but the per-turn edge remains bounded by
+$|\rho_1|\,\sigma^2 \approx 0.1$~bps---a ceiling imposed by the
+horizon, not the bar construction.
+
+%% ================================================================
+\section{Signal Combination and Stacking}
+\label{sec:stacking}
+
+\subsection{The fundamental law of active management}
+
+\citet{grinold2000active} formalize the relationship between signal
+quality and portfolio performance:
+\begin{equation}
+  \mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{BR}}
+  \label{eq:fundamental-law}
+\end{equation}
+where IR is the information ratio (annualized Sharpe of the active
+return), IC is the information coefficient (correlation between signal
+and realized return), and BR is the \emph{breadth} (number of
+independent bets per year).
+
+The practical implication: a mediocre signal ($\mathrm{IC} = 0.02$)
+applied to 50 instruments with daily rebalancing
+($\mathrm{BR} = 50 \times 252 = 12{,}600$) achieves
+$\mathrm{IR} \approx 0.02 \times \sqrt{12{,}600} \approx 2.2$---a
+perfectly viable strategy despite the tiny per-bet IC.
+
+\subsection{Stacking uncorrelated signals}
+
+Given $N$ signals with equal Sharpe $S$ and average pairwise
+correlation $\bar\rho$, the portfolio Sharpe is approximately:
+\begin{equation}
+  S_{\text{port}} \approx \frac{\sqrt{N}}{\sqrt{1 + (N-1)\bar\rho}}
+  \cdot S
+  \label{eq:stacking}
+\end{equation}
+
+When $\bar\rho \approx 0$, the improvement is $\sqrt{N}$---i.e.,
+15 uncorrelated signals of Sharpe~2 produce a portfolio of Sharpe~8.
+When $\bar\rho$ is large ($> 0.5$), the improvement saturates quickly
+and adding more signals of the same type provides diminishing returns.
+
+\paragraph{Empirical demonstration.}
+On 12 months of BTCUSDT 1-minute klines, three signal families
+(composite mean-reversion, funding-rate carry, PCA residual) have
+average pairwise correlation $\bar\rho = 0.08$. The equal-weight
+stack achieves a realized Sharpe multiplier of $1.71\times$, close to
+the theoretical $\sqrt{3} \approx 1.73\times$.
+
+\subsection{Weighting schemes}
+
+Common approaches to signal weighting:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Equal weight}: $w_i = 1/N$. Simple, robust, hard to
+        beat out of sample.
+  \item \textbf{Inverse volatility}: $w_i \propto 1/\sigma_i$ where
+        $\sigma_i$ is the volatility of signal $i$'s PnL. A
+        risk-parity analog for signals.
+  \item \textbf{Markowitz (mean-variance)}: $\mathbf{w} \propto
+        \Sigma^{-1}\boldsymbol{\mu}$. Theoretically optimal but
+        notoriously unstable in practice due to estimation error in
+        $\Sigma$ and $\boldsymbol{\mu}$.
+  \item \textbf{Shrinkage / regularized}: Ledoit--Wolf shrinkage on
+        $\Sigma$, ridge/LASSO on $\boldsymbol{\mu}$.
+        The practical standard at most systematic funds.
+\end{enumerate}
+
+%% ================================================================
+\section{Cost-Aware Backtesting and the Economics of Edge}
+
+\subsection{The edge-per-turn framework}
+
+The single most important metric for a short-horizon signal is
+\textbf{edge per turn} (in basis points):
+\begin{equation}
+  \text{edge}_{\text{bps}} = \frac{\text{gross PnL}}{\text{total turnover}}
+  \times 10{,}000
+\end{equation}
+This number is independent of bar frequency, position sizing, and
+leverage---it measures the raw informational content of the signal per
+unit of trading activity.
+
+A signal is viable if and only if:
+\begin{equation}
+  \text{edge}_{\text{bps}} > \text{all-in cost per turn (bps)}
+\end{equation}
+where all-in cost includes:
+\begin{itemize}[leftmargin=1.5em]
+  \item Exchange fee (taker: 1.7--4.5~bps; maker: 0--0.5~bps on
+        Binance USD-M futures, depending on VIP tier)
+  \item Half-spread (typically 0.01--0.1~bps for BTC perps)
+  \item Market impact (a function of order size; negligible for small
+        orders but dominant for large ones)
+\end{itemize}
+
+\subsection{The $|\rho_1|\sigma^2$ bound}
+
+For a pure mean-reversion signal on a single asset at a fixed bar
+frequency, the expected per-bar gross PnL of a unit-sized position is
+approximately:
+\begin{equation}
+  \mathbb{E}[\text{gross PnL per bar}]
+  \approx |\rho_1| \cdot \sigma^2
+\end{equation}
+where $\rho_1$ is the lag-1 autocorrelation of returns and $\sigma$ is
+the per-bar volatility. This bounds the achievable edge: at 1-minute
+bars on BTC ($\sigma \approx 7 \times 10^{-5}$, $|\rho_1| \approx 0.1$),
+the product is $\sim$0.1~bps---an order of magnitude below taker cost.
+
+This bound motivates three paths to profitability:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Maker execution}: flip the cost sign (collect spread
+        instead of paying it).
+  \item \textbf{Shorter horizon}: push to sub-second bars where
+        $|\rho_1|$ is larger (e.g., sign ACF $\rho_1 = +0.63$ in
+        trade time) even though $\sigma$ is smaller---the product
+        can be 10--100$\times$ the 1-minute value.
+  \item \textbf{Cross-sectional breadth}: apply the same signal to
+        50+ instruments, reducing per-name turnover and gaining
+        $\sqrt{N}$ diversification.
+\end{enumerate}
+
+\subsection{Walk-forward validation}
+
+A backtest on the full sample is subject to overfitting. The standard
+remedy is \textbf{walk-forward validation}: the sample is divided into
+rolling train/test windows (e.g., 3-month train / 1-month test), the
+signal parameters are estimated on the train window, and PnL is
+evaluated on the out-of-sample test window only. A strategy that is
+consistently positive across all folds is more credible than one with a
+high full-sample Sharpe but variable OOS performance
+\citep{bailey2014probability}.
+
+\subsection{Paper trading as pipeline validation}
+
+Live paper trading---running the signal computation and simulated
+execution against a real-time data feed---serves as a final check that:
+\begin{enumerate}[leftmargin=1.5em]
+  \item The backtest implementation is correct (no look-ahead bias,
+        no survivorship bias, no stale-data artifacts).
+  \item The live signal distribution matches the historical one
+        (no regime shift since the backtest period).
+  \item The execution model's assumptions (fill at mid $\pm$
+        half-spread, no queue priority, no partial fills) produce
+        PnL consistent with the backtest prediction.
+\end{enumerate}
+Paper trading does not validate profitability---it validates the
+\emph{pipeline}. If live PnL diverges sharply from the backtest
+prediction, the backtest is suspect regardless of its Sharpe.
+
+%% ================================================================
+\section{Advanced Methods}
+\label{sec:advanced}
+
+\subsection{Kalman filter for time-varying hedge ratios}
+
+In pairs trading, the hedge ratio $\beta$ drifts over time. The
+\textbf{Kalman filter} models this as a linear-Gaussian state-space
+system:
+\begin{align}
+  \text{State:} \quad & \beta_t = \beta_{t-1} + w_t, \quad w_t \sim N(0, Q) \\
+  \text{Observation:} \quad & Y_t = \beta_t X_t + v_t, \quad v_t \sim N(0, R)
+\end{align}
+The filter recursively updates $\hat\beta_t$ and its uncertainty
+$P_t$ at each new observation. The residual $v_t = Y_t - \hat\beta_t
+X_t$ is the spread, and its z-score (scaled by $\sqrt{P_t + R}$)
+is the trading signal.
+
+This is more adaptive than rolling OLS and naturally down-weights
+periods of high parameter uncertainty, which makes the signal more
+conservative during regime transitions.
+
+\subsection{Hidden Markov Models for regime detection}
+
+Markets alternate between regimes (trending, mean-reverting, volatile,
+quiet). A \textbf{Hidden Markov Model (HMM)} with $K$ states provides
+a probabilistic estimate of the current regime:
+\begin{align}
+  p(S_t = k \mid \text{data}) &= \text{filtered probability}
+\end{align}
+The HMM parameters (transition matrix, per-state return distribution)
+are estimated via the Baum--Welch algorithm. The signal is then
+\emph{conditioned} on the regime: trade the mean-reversion signal only
+when $p(\text{MR regime}) > \text{threshold}$.
+
+\paragraph{Practical note.}
+HMMs are powerful but fragile: with $K > 3$ states they tend to
+overfit, and the Baum--Welch algorithm is sensitive to initialization.
+Practitioners typically use $K = 2$ (``trending'' vs.\ ``mean-reverting'')
+and re-estimate parameters monthly.
+
+\subsection{Hawkes processes for trade arrival modelling}
+
+Trade arrivals on crypto exchanges are bursty: clusters of rapid-fire
+trades are separated by quiet intervals. The \textbf{Hawkes process}
+models this self-exciting behavior:
+\begin{equation}
+  \lambda(t) = \mu + \sum_{t_i < t} \alpha\, e^{-\beta(t - t_i)}
+\end{equation}
+where $\lambda(t)$ is the intensity (arrival rate), $\mu$ is the
+baseline rate, and $\alpha$, $\beta$ control the magnitude and decay
+of self-excitation.
+
+Hawkes models are used for:
+\begin{itemize}[leftmargin=1.5em]
+  \item Detecting periods of abnormal activity (potential signals or
+        risk events).
+  \item Modelling the impact of one's own trades on subsequent market
+        activity (``market footprint'').
+  \item Calibrating execution algorithms that need to predict
+        near-future trade rates.
+\end{itemize}
+
+\subsection{Machine learning approaches}
+
+Modern alpha research increasingly uses ML for feature selection and
+non-linear signal combination:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{LASSO / Elastic Net}: sparse linear combination of a
+        large feature set; useful for selecting which microstructure
+        features matter.
+  \item \textbf{Gradient-boosted trees (XGBoost, LightGBM)}: capture
+        non-linear interactions between features without explicit
+        specification; risk of overfitting, mitigated by walk-forward
+        validation.
+  \item \textbf{Neural networks}: sequence models (LSTM, Transformer)
+        for temporal dependencies; attention mechanisms for
+        cross-asset structure. State of the art in some contexts,
+        but data-hungry and hard to interpret.
+  \item \textbf{Meta-labeling} \citep{deprado2018advances}: a
+        secondary model that predicts whether a primary signal's
+        trade will be profitable, effectively learning a
+        regime-conditional filter.
+\end{itemize}
+
+%% ================================================================
+\section{Conclusion}
+
+Short-horizon alpha research is not a single technique but a
+\emph{pipeline}: from raw tick data, through bar construction and
+signal extraction, to cost-aware backtesting and portfolio-level
+stacking. The methods span classical time-series econometrics
+(cointegration, PCA, AR models), market microstructure theory
+(Kyle's lambda, Lo--MacKinlay sign ACF, Hasbrouck's information
+share), modern portfolio theory (Grinold--Kahn, risk parity), and
+machine learning (LASSO, gradient boosting, sequence models).
+
+The unifying insight is that no single signal at the short horizon
+carries enough edge to overcome transaction costs alone. The business
+of systematic short-horizon trading is therefore a
+\emph{portfolio construction} problem: the researcher's job is to
+produce signals that are individually non-zero and mutually
+uncorrelated, so that $\sqrt{N}$ does the heavy lifting at the
+portfolio level.
+
+%% ================================================================
+\bibliographystyle{apalike}
+\begin{thebibliography}{99}
+
+\bibitem[Almgren et al., 2005]{almgren2005direct}
+Almgren, R., Thum, C., Hauptmann, E., \& Li, H. (2005).
+Direct estimation of equity market impact.
+\emph{Risk}, 18(7), 58--62.
+
+\bibitem[Avellaneda \& Lee, 2010]{avellaneda2010statistical}
+Avellaneda, M. \& Lee, J.-H. (2010).
+Statistical arbitrage in the US equities market.
+\emph{Quantitative Finance}, 10(7), 761--782.
+
+\bibitem[Bailey et al., 2014]{bailey2014probability}
+Bailey, D.H., Borwein, J.M., de Prado, M.L., \& Zhu, Q.J. (2014).
+The probability of backtest overfitting.
+\emph{Journal of Computational Finance}, 20(4).
+
+\bibitem[Bouchaud et al., 2009]{bouchaud2009markets}
+Bouchaud, J.-P., Farmer, J.D., \& Lillo, F. (2009).
+How markets slowly digest changes in supply and demand.
+In \emph{Handbook of Financial Markets: Dynamics and Evolution}.
+Elsevier.
+
+\bibitem[Cartea et al., 2015]{cartea2015algorithmic}
+Cartea, A., Jaimungal, S., \& Penalva, J. (2015).
+\emph{Algorithmic and High-Frequency Trading}.
+Cambridge University Press.
+
+\bibitem[Clark, 1973]{clark1973subordinated}
+Clark, P.K. (1973).
+A subordinated stochastic process model with finite variance
+for speculative prices.
+\emph{Econometrica}, 41(1), 135--155.
+
+\bibitem[Cont et al., 2014]{cont2014price}
+Cont, R., Kukanov, A., \& Stoikov, S. (2014).
+The price impact of order book events.
+\emph{Journal of Financial Econometrics}, 12(1), 47--88.
+
+\bibitem[de Prado, 2018]{deprado2018advances}
+de Prado, M.L. (2018).
+\emph{Advances in Financial Machine Learning}.
+Wiley.
+
+\bibitem[Engle \& Granger, 1987]{engle1987cointegration}
+Engle, R.F. \& Granger, C.W.J. (1987).
+Co-integration and error correction: Representation, estimation,
+and testing.
+\emph{Econometrica}, 55(2), 251--276.
+
+\bibitem[Grinold \& Kahn, 2000]{grinold2000active}
+Grinold, R.C. \& Kahn, R.N. (2000).
+\emph{Active Portfolio Management}.
+McGraw-Hill, 2nd edition.
+
+\bibitem[Hamilton, 1994]{hamilton1994time}
+Hamilton, J.D. (1994).
+\emph{Time Series Analysis}.
+Princeton University Press.
+
+\bibitem[Hasbrouck, 2007]{hasbrouck2007empirical}
+Hasbrouck, J. (2007).
+\emph{Empirical Market Microstructure}.
+Oxford University Press.
+
+\bibitem[Kyle, 1985]{kyle1985continuous}
+Kyle, A.S. (1985).
+Continuous auctions and insider trading.
+\emph{Econometrica}, 53(6), 1315--1335.
+
+\bibitem[Leung \& Li, 2015]{leung2015optimal}
+Leung, T. \& Li, X. (2015).
+Optimal mean reversion trading with transaction costs and
+stop-loss exit.
+\emph{International Journal of Theoretical and Applied Finance},
+18(3), 1550020.
+
+\bibitem[Lillo et al., 2004]{lillo2004long}
+Lillo, F., Mike, S., \& Farmer, J.D. (2004).
+Theory for long memory in supply and demand.
+\emph{Physical Review E}, 71(6), 066122.
+
+\end{thebibliography}
+
+\end{document}

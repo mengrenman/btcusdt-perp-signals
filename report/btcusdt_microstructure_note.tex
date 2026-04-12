@@ -1,0 +1,190 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\titleformat{\section}{\normalsize\bfseries\color{black!80}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{18pt}{6pt}
+\setlength{\parskip}{2pt}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+  {\large\bfseries BTCUSDT Perpetual Futures: Microstructure Observations\\[2pt]
+  and Live Paper-Trading Results}\\[4pt]
+  {\footnotesize Mengren Man \quad$\cdot$\quad April 2026}
+\end{center}
+
+\vspace{6pt}\hrule\vspace{6pt}
+
+%% ----------------------------------------------------------------
+\section*{1.\ Overview}
+
+Follow-up to the historical backtest summary shared on 9~April. This note
+extends the original 2-day study in two directions:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=1pt, topsep=2pt]
+  \item \textbf{Tick-level microstructure analysis} on 7~days $\times$ 3~symbols
+        (BTC, ETH, SOL USDT perpetual futures; 20M+ trades from
+        \texttt{data.binance.vision}).
+  \item \textbf{Live paper-trading} of the composite signal described in the
+        original note, with a transparent taker cost model, running since
+        10~April 2026.
+\end{enumerate}
+
+\noindent
+No strategy changes have been made between the backtest and the live run.
+
+%% ----------------------------------------------------------------
+\section*{2.\ Tick-Level Microstructure Observations}
+
+Data: 7~days of \texttt{aggTrades} for BTC/ETH/SOL USDT perpetuals
+(2026-04-01 to 2026-04-07), totalling 20.3M trades and \$141B notional.
+
+\subsection*{2.1\ Trade-sign autocorrelation (Lo--MacKinlay / Hasbrouck)}
+
+In trade-time the aggressor sign is strongly persistent for the liquid names:
+
+\smallskip
+\begin{tabular}{lcccccc}
+\toprule
+ & $\rho_1$ & $\rho_5$ & $\rho_{10}$ & $\rho_{50}$ & $\rho_{100}$ & $\rho_{500}$ \\
+\midrule
+BTC & $+0.63$ & $+0.62$ & $+0.56$ & $+0.26$ & $+0.13$ & $+0.02$ \\
+ETH & $+0.50$ & $+0.48$ & $+0.38$ & $+0.09$ & $+0.04$ & $+0.01$ \\
+SOL & $-0.16$ & $+0.03$ & $+0.05$ & $+0.04$ & $+0.03$ & $+0.02$ \\
+\bottomrule
+\end{tabular}
+
+\smallskip\noindent
+A power-law fit $\rho_k \sim k^{-\gamma}$ on $k \in [5,\, 500]$ gives
+$\gamma = 0.78$ (BTC) and $0.99$ (ETH), squarely within the equity-literature
+range $[0.5,\, 1.0]$. The same order-splitting / metaorder signature that
+governs equity tapes is present on crypto perpetual futures.
+
+\textbf{SOL shows the opposite pattern}: $\rho_1 = -0.16$, with a shallow
+decay $\gamma = 0.18$. This is the bid--ask-bounce signature of a book where
+the 271\,ms mean inter-arrival is long enough that consecutive trades
+alternate across the top of book. Two distinct microstructure regimes ---
+order-splitting (BTC, ETH) and bid--ask bounce (SOL) --- are cleanly separated
+by liquidity within the same 7-day sample.
+
+\subsection*{2.2\ Trade-clock vs.\ wall-clock predictability}
+
+AR(1) on signed flow in wall-clock buckets is uniformly weak:
+
+\smallskip
+\begin{tabular}{lccccc}
+\toprule
+ & 100\,ms & 500\,ms & 1\,s & 5\,s & 30\,s \\
+\midrule
+BTC $R^2$ & 0.008 & 0.003 & 0.005 & \textbf{0.023} & 0.016 \\
+ETH $R^2$ & 0.004 & 0.003 & 0.007 & \textbf{0.034} & 0.018 \\
+SOL $R^2$ & 0.001 & 0.001 & 0.001 & 0.005 & 0.012 \\
+\bottomrule
+\end{tabular}
+
+\smallskip\noindent
+Despite the large trade-time $\rho_1$ (0.50--0.63 for BTC/ETH), aggregating
+into fixed time buckets destroys most of the sign signal.
+\textbf{Trade-clock concentrates predictability; wall-clock dilutes it.}
+
+\subsection*{2.3\ Additional observations}
+
+Price-impact response is monotonic and roughly linear in signed size across
+all three symbols, with concave tails on the largest prints (square-root-law
+regime). Cross-symbol signed-flow lead--lag peaks at lag~0 at both 100\,ms and
+10\,ms resolution --- no exploitable BTC$\to$alt lead on this sample. Realized
+volatility scales with trade count, not wall-clock time (Clark 1973),
+reinforcing the case for trade-clock or dollar-clock sampling in any
+short-horizon signal.
+
+%% ----------------------------------------------------------------
+\section*{3.\ PCA Residual Mean-Reversion}
+
+The original note's composite signal was extended with cross-asset PCA
+residualization (BTC/ETH/SOL). PC1 explains 84\% of the joint variance;
+stripping $\beta \cdot \text{PC1}$ from BTC yields a residual with lag-1
+autocorrelation $\rho_1 = -0.11$ on 1-min time bars and $-0.13$ on \$5M
+dollar bars (vs.\ $\approx 0$ for raw BTC returns).
+
+\medskip
+\begin{tabular}{llccc}
+\toprule
+\textbf{Experiment} & \textbf{Clock} & $\boldsymbol{\rho_1}$ & \textbf{Edge (bps/turn)} & \textbf{Net Sharpe @ 2\,bps} \\
+\midrule
+1-min raw BTC           & time  & $+0.00$ & ---   & --- \\
+1-min PC1 residual      & time  & $-0.11$ & $\sim +0.2$ & $< 0$ \\
+\$5M dollar bars, BTC only & dollar & --- & $-0.02$ & $< 0$ \\
+\$5M dollar bars, PC1 residual & dollar & $-0.13$ & $+0.09$ & $\ll 0$ \\
+\bottomrule
+\end{tabular}
+
+\medskip\noindent
+The signal is real, robust, and cross-sample consistent --- but per-turn edge
+is bounded above by $|\rho_1|\,\sigma^2 \approx 0.1$\,bps at the minute-ish
+horizon. The constraint is execution infrastructure, not signal quality.
+
+%% ----------------------------------------------------------------
+\section*{4.\ Live Paper-Trading Results}
+
+\textit{[This section will be populated with results from the live paper-trading
+harness running since 10~April 2026.]}
+
+\medskip\noindent
+\textbf{Setup.} The composite signal from the original note (8 sub-signals,
+default weights, VWAP reversion overweighted at 20\%, 5-bar EMA smoothing)
+is recomputed on rolling 1-minute bars aggregated from a live websocket feed
+(\texttt{btcusdt@aggTrade} + \texttt{btcusdt@bookTicker}).
+
+\textbf{Fill model.} Taker-side: simulated market orders at live mid
+$\pm$ half-spread, charged 2\,bps round-trip fee on $|\Delta\text{position}|$.
+No queue-position modelling, no partial fills.
+
+\medskip
+\textit{[Insert: cumulative PnL chart, edge\_bps, live-vs-backtest tracking.
+Purpose: pipeline sanity check and confirmation that the backtest was not
+overfit --- not a claim of live profitability.]}
+
+%% ----------------------------------------------------------------
+\section*{5.\ What Would Close the Gap}
+
+The per-turn edge of $\sim$0.1--0.2\,bps is structurally below any
+realistic taker cost ($\sim$1--2\,bps round-trip). Three paths close the gap:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=1pt, topsep=2pt]
+  \item \textbf{Maker-side execution} --- fixes the \emph{cost sign}.
+        Switch from crossing the spread to posting resting orders: collect
+        spread $+$ exchange rebate instead of paying them. This converts the
+        $\sim$1.5\,bps taker drag into a $\sim$1\,bps maker credit --- a
+        2.5\,bps swing per turn that dominates the signal's own edge.
+        Requires queue-position modelling and an exchange simulator to
+        evaluate fill probability honestly.
+  \item \textbf{Sub-second horizon} --- fixes the \emph{signal decay}.
+        Trade-time sign autocorrelation ($\rho_1 = +0.63$ for BTC,
+        section~2.1) is the directly tradable object at the sub-second
+        horizon. $|\rho|$ is much larger there even though $\sigma^2$ per
+        bar is smaller; the $|\rho|\,\sigma^2$ product can be
+        10--100$\times$ the 1-minute value. This is the
+        latency-sensitive regime where colocation and fast execution
+        matter.
+  \item \textbf{Broader cross-section} --- fixes the \emph{diversification}.
+        Extending the PCA residual framework from 3~majors to 50+ altcoins
+        makes individually marginal signals additive. A stacked portfolio
+        of 15--20 decorrelated sub-bp signals can reach 1--3\,bps
+        aggregate edge per turn.
+\end{enumerate}
+
+\noindent
+All three are infrastructure or scale decisions, not research ones ---
+and all three are core to how an HFT or systematic short-horizon firm
+operates.
+
+\end{document}

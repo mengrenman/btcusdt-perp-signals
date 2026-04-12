@@ -1,0 +1,36 @@
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
+\contentsline {section}{\numberline {2}Mean-Reversion and Statistical Arbitrage}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The core idea}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Pairs trading and cointegration}{3}{subsection.2.2}%
+\contentsline {paragraph}{Practical considerations.}{3}{section*.2}%
+\contentsline {subsection}{\numberline {2.3}PCA residualization (Avellaneda--Lee)}{3}{subsection.2.3}%
+\contentsline {paragraph}{Application to crypto.}{4}{section*.3}%
+\contentsline {subsection}{\numberline {2.4}Ornstein--Uhlenbeck modelling}{4}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Microstructure Signal Extraction}{4}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Trade-sign autocorrelation}{4}{subsection.3.1}%
+\contentsline {paragraph}{Empirical finding on crypto perps.}{5}{section*.4}%
+\contentsline {subsection}{\numberline {3.2}Order flow imbalance (OFI)}{5}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Price impact}{5}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Trade-clock vs.\ wall-clock sampling}{5}{subsection.3.4}%
+\contentsline {paragraph}{AR(1) comparison.}{5}{section*.5}%
+\contentsline {subsection}{\numberline {3.5}Cross-symbol lead--lag}{5}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Information-Theoretic Bar Construction}{6}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Dollar bars and volume bars}{6}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Empirical test}{6}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Signal Combination and Stacking}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The fundamental law of active management}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Stacking uncorrelated signals}{6}{subsection.5.2}%
+\contentsline {paragraph}{Empirical demonstration.}{7}{section*.6}%
+\contentsline {subsection}{\numberline {5.3}Weighting schemes}{7}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Cost-Aware Backtesting and the Economics of Edge}{7}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The edge-per-turn framework}{7}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The $|\rho _1|\sigma ^2$ bound}{7}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Walk-forward validation}{8}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Paper trading as pipeline validation}{8}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Advanced Methods}{8}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Kalman filter for time-varying hedge ratios}{8}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Hidden Markov Models for regime detection}{8}{subsection.7.2}%
+\contentsline {paragraph}{Practical note.}{9}{section*.7}%
+\contentsline {subsection}{\numberline {7.3}Hawkes processes for trade arrival modelling}{9}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Machine learning approaches}{9}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Conclusion}{9}{section.8}%
