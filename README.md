@@ -85,8 +85,8 @@ sub-bp per-turn edge — below standalone cost.
 Tests whether switching from time bars to **dollar bars** (information clock)
 concentrates the signal.
 
-- **NB 06:** BTC-only $5M dollar bars. Edge worse than 1-minute bars (−0.02 bps). Rules out the bar-type hypothesis on single-asset.
-- **NB 07:** BTC-clocked synchronized dollar bars with `merge_asof` ETH/SOL joins, rebuilds the PCA residual signal on the dollar-bar clock. Residual autocorrelation *strengthens* to **ρ₁ = −0.13** — the signal is real and cross-sample consistent — but per-turn edge is only **0.086 bps**, matching the $|\rho_1|\sigma^2$ ceiling at this horizon. Robustly sub-bp.
+- **NB 06:** BTC-only \$5M dollar bars. Edge worse than 1-minute bars (−0.02 bps). Rules out the bar-type hypothesis on single-asset.
+- **NB 07:** BTC-clocked synchronized dollar bars with `merge_asof` ETH/SOL joins, rebuilds the PCA residual signal on the dollar-bar clock. Residual autocorrelation strengthens to **ρ₁ = −0.13** — the signal is real and cross-sample consistent — but per-turn edge is only **0.086 bps**, matching the |ρ₁|σ² ceiling at this horizon. Robustly sub-bp.
 
 ### Thread D — Tick-level microstructure patterns (NB 08)
 
@@ -95,14 +95,14 @@ just the canonical tick-level diagnostics:
 
 1. **Heavy-tailed trade sizes** (log-log CCDF, power-law tail across 2–3 decades).
 2. **Bursty, non-Poisson inter-arrivals** with heavy right tail (Hawkes signature).
-3. **Trade-sign persistence (Lo–MacKinlay / Hasbrouck).** In trade-time, $\rho_1 = +0.63$ (BTC), $+0.50$ (ETH). A log-log fit on $k \in [5, 500]$ gives power-law decay exponents $\gamma = 0.78$ (BTC) and $0.99$ (ETH) — squarely inside the equity-literature range $[0.5, 1.0]$. **Crypto perps show the same order-splitting / metaorder signature as equities.**
-4. **Two distinct microstructure regimes, cleanly separated by liquidity.** SOL shows the opposite pattern: $\rho_1 = -0.16$ and shallow $\gamma = 0.18$ — the bid-ask-bounce signature of a book where the 271 ms inter-arrival is long enough that consecutive trades alternate across the top of book.
-5. **AR(1) on wall-clock signed-flow buckets** is uniformly weak ($R^2 \le 0.034$), despite the large trade-time $\rho_1$: aggregating into fixed time buckets destroys most of the sign signal. **Trade-clock concentrates predictability; wall-clock dilutes it.**
+3. **Trade-sign persistence (Lo–MacKinlay / Hasbrouck).** In trade-time, ρ₁ = +0.63 (BTC), +0.50 (ETH). A log-log fit on k ∈ \[5, 500\] gives power-law decay exponents γ = 0.78 (BTC) and 0.99 (ETH) — squarely inside the equity-literature range \[0.5, 1.0\]. **Crypto perps show the same order-splitting / metaorder signature as equities.**
+4. **Two distinct microstructure regimes, cleanly separated by liquidity.** SOL shows the opposite pattern: ρ₁ = −0.16 and shallow γ = 0.18 — the bid-ask-bounce signature of a book where the 271 ms inter-arrival is long enough that consecutive trades alternate across the top of book.
+5. **AR(1) on wall-clock signed-flow buckets** is uniformly weak (R² ≤ 0.034), despite the large trade-time ρ₁: aggregating into fixed time buckets destroys most of the sign signal. **Trade-clock concentrates predictability; wall-clock dilutes it.**
 6. **Monotonic, roughly linear price impact** in signed size over the body of the distribution with concave tails on the largest prints (square-root-law regime at the top).
 7. **No meaningful cross-symbol lead-lag** in signed flow on this sample: all three pairs peak at lag 0 at 100 ms, and a 10 ms follow-up probe finds only a single 10 ms BTC→SOL lead at peak correlation 0.027.
 8. **Realized volatility tracks trade count, not wall-clock time**, confirming Clark-1973 subordinated-time on this tape.
-9. **Kyle's $\lambda$:** square-root impact model ($\Delta p = \lambda \sqrt{|q|}$) fits well for BTC ($R^2 = 2.2\%$) and ETH ($R^2 = 1.6\%$); near-zero for SOL.
-10. **Bootstrap CIs on $\gamma$** are tight and non-overlapping: BTC [0.78, 0.83], ETH [0.98, 1.04], SOL [0.18, 0.21]. The three regimes are statistically unambiguous.
+9. **Kyle's λ:** square-root impact model (Δp = λ√|q|) fits well for BTC (R² = 2.2%) and ETH (R² = 1.6%); near-zero for SOL.
+10. **Bootstrap CIs on γ** are tight and non-overlapping: BTC \[0.78, 0.83\], ETH \[0.98, 1.04\], SOL \[0.18, 0.21\]. The three regimes are statistically unambiguous.
 11. **Intraday seasonality** — clear Asia/London/NY session structure in trade intensity and volatility, peak during London–NY overlap.
 12. **Hasbrouck information share** — ETH dominates price discovery over BTC at 5–30s scales. Counterintuitive but robust: the ETH perpetual was the more active price-discovery venue during this 7-day sample.
 
@@ -120,20 +120,20 @@ The composite signal from Threads A/B is run live via `src/paper_trade.py`, subs
 
 ### Thread F — Signal stacking (NB 10)
 
-Demonstrates the Grinold–Kahn $\sqrt{N}$ Sharpe scaling with three genuinely uncorrelated signal families:
+Demonstrates the Grinold–Kahn √N Sharpe scaling with three genuinely uncorrelated signal families:
 
 - **A:** Composite mean-reversion (8 sub-signals from Thread A)
 - **B:** Funding-rate carry (4.2 bps edge, only individually profitable signal at 0.5 bps)
 - **C:** PCA residual (Thread B)
 
-Pairwise correlations: A–B = 0.001, A–C = 0.25, B–C = 0.004. Equal-weight stack achieves 1.71× Sharpe multiplier (theoretical $\sqrt{3}$ = 1.73×). Extrapolation: a portfolio of 15–20 decorrelated sub-bp signals with $\bar{\rho} = 0.08$ could reach aggregate Sharpe ~6.3.
+Pairwise correlations: A–B = 0.001, A–C = 0.25, B–C = 0.004. Equal-weight stack achieves 1.71× Sharpe multiplier (theoretical √3 = 1.73×). Extrapolation: a portfolio of 15–20 decorrelated sub-bp signals with ρ̄ = 0.08 could reach aggregate Sharpe ~6.3.
 
 ## Key Findings Across Threads
 
 **The residual mean-reversion signal is real, robust, and structurally sub-bp.**
-It survives four methodological variants (1-min time bars, $5M single-asset dollar bars, cross-asset 1-min, cross-asset dollar bars) with lag-1 residual autocorrelation consistently in the $[-0.11, -0.13]$ range. The per-turn edge is ceilinged at roughly $|\rho_1| \sigma^2 \approx 0.08$–$0.20$ bps at the minute-ish horizon — an order of magnitude below any realistic taker cost. The signal belongs as *one component* of a stacked book, not as a standalone strategy.
+It survives four methodological variants (1-min time bars, \$5M single-asset dollar bars, cross-asset 1-min, cross-asset dollar bars) with lag-1 residual autocorrelation consistently in the \[-0.11, -0.13\] range. The per-turn edge is ceilinged at roughly |ρ₁|σ² ≈ 0.08–0.20 bps at the minute-ish horizon — an order of magnitude below any realistic taker cost. The signal belongs as one component of a stacked book, not as a standalone strategy.
 
-**Tick-level signed flow is strongly predictable in trade-time.** The classical Lo–MacKinlay power-law decay is present on crypto perps with $\gamma \in [0.78, 0.99]$ for BTC/ETH, directly inside the equity-literature range. This is the single most important tick-level pattern for any maker strategy on the instrument.
+**Tick-level signed flow is strongly predictable in trade-time.** The classical Lo–MacKinlay power-law decay is present on crypto perps with γ ∈ \[0.78, 0.99\] for BTC/ETH, directly inside the equity-literature range. This is the single most important tick-level pattern for any maker strategy on the instrument.
 
 **The edge closes only through execution, not through more signal engineering.**
 Closing the gap from 0.1 bps to profitable requires (i) maker-side execution and rebate tiers, (ii) queue-position modeling and a realistic fill simulator, or (iii) sub-second horizons where the trade-time sign ACF (not the wall-clock one) is the directly tradable object. All three are infrastructure decisions, not research ones.
