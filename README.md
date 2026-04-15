@@ -62,7 +62,7 @@ futures archives, so live capture is the only way to obtain it.
 
 ## Research Threads
 
-### Thread A — Original 2-day composite backtest (NB 01–03)
+### Thread A — Original 2-day composite backtest ([NB 01](notebooks/01_data_exploration.ipynb)–[03](notebooks/03_backtest.ipynb))
 
 Eight signals (z-score MR, Bollinger, VWAP reversion, OFI, trade intensity, RSI, contrarian MA crossover, volume momentum) combined into a weighted composite, smoothed with a 5-bar EMA, backtested on 1-minute bars.
 
@@ -71,7 +71,7 @@ Eight signals (z-score MR, Bollinger, VWAP reversion, OFI, trade intensity, RSI,
 - Unambiguously unprofitable at realistic taker cost (~2 bps)
 - Profitable only contingent on maker-side execution
 
-### Thread B — 12-month walk-forward + cross-asset PCA residual MR (NB 05)
+### Thread B — 12-month walk-forward + cross-asset PCA residual MR ([NB 05](notebooks/05_full_year.ipynb))
 
 Full-year replication of Thread A on 1-minute klines, plus a cross-asset factor
 residualization: PC1 of the BTC/ETH/SOL log-return panel explains 84% of
@@ -80,15 +80,15 @@ BTC returns yields a residual with **lag-1 autocorrelation ρ₁ ≈ −0.11**
 versus ≈ 0 for raw BTC. The MR signal on the residual has a positive but
 sub-bp per-turn edge — below standalone cost.
 
-### Thread C — Dollar-bar hypothesis (NB 06, 07)
+### Thread C — Dollar-bar hypothesis ([NB 06](notebooks/06_dollar_bars.ipynb), [07](notebooks/07_cross_asset_dollar_bars.ipynb))
 
 Tests whether switching from time bars to **dollar bars** (information clock)
 concentrates the signal.
 
-- **NB 06:** BTC-only \$5M dollar bars. Edge worse than 1-minute bars (−0.02 bps). Rules out the bar-type hypothesis on single-asset.
-- **NB 07:** BTC-clocked synchronized dollar bars with `merge_asof` ETH/SOL joins, rebuilds the PCA residual signal on the dollar-bar clock. Residual autocorrelation strengthens to **ρ₁ = −0.13** — the signal is real and cross-sample consistent — but per-turn edge is only **0.086 bps**, matching the |ρ₁|σ² ceiling at this horizon. Robustly sub-bp.
+- **[NB 06](notebooks/06_dollar_bars.ipynb):** BTC-only \$5M dollar bars. Edge worse than 1-minute bars (−0.02 bps). Rules out the bar-type hypothesis on single-asset.
+- **[NB 07](notebooks/07_cross_asset_dollar_bars.ipynb):** BTC-clocked synchronized dollar bars with `merge_asof` ETH/SOL joins, rebuilds the PCA residual signal on the dollar-bar clock. Residual autocorrelation strengthens to **ρ₁ = −0.13** — the signal is real and cross-sample consistent — but per-turn edge is only **0.086 bps**, matching the |ρ₁|σ² ceiling at this horizon. Robustly sub-bp.
 
-### Thread D — Tick-level microstructure patterns (NB 08)
+### Thread D — Tick-level microstructure patterns ([NB 08](notebooks/08_tick_patterns.ipynb))
 
 Direct analysis of 7 days × 3 symbols of `aggTrades`. No strategy, no Sharpe —
 just the canonical tick-level diagnostics:
@@ -106,7 +106,7 @@ just the canonical tick-level diagnostics:
 11. **Intraday seasonality** — clear Asia/London/NY session structure in trade intensity and volatility, peak during London–NY overlap.
 12. **Hasbrouck information share** — ETH dominates price discovery over BTC at 5–30s scales. Counterintuitive but robust: the ETH perpetual was the more active price-discovery venue during this 7-day sample.
 
-### Thread E — Live paper-trading validation (NB 09)
+### Thread E — Live paper-trading validation ([NB 09](notebooks/09_paper_trade_analysis.ipynb))
 
 The composite signal from Threads A/B is run live via `src/paper_trade.py`, subscribing to Binance websocket streams (`btcusdt@aggTrade` + `btcusdt@bookTicker`), aggregating 1-min bars in real time, and simulating taker fills at live mid ± half-spread with 2 bps round-trip cost.
 
@@ -118,7 +118,7 @@ The composite signal from Threads A/B is run live via `src/paper_trade.py`, subs
 - Mean observed half-spread: 0.0085 bps
 - **Purpose: pipeline sanity check and confirmation that the backtest was not overfit, not a claim of live profitability.**
 
-### Thread F — Signal stacking (NB 10)
+### Thread F — Signal stacking ([NB 10](notebooks/10_signal_stacking.ipynb))
 
 Demonstrates the Grinold–Kahn √N Sharpe scaling with three genuinely uncorrelated signal families:
 
@@ -156,13 +156,15 @@ python -m src.capture_book_ticker --symbols BTCUSDT ETHUSDT SOLUSDT --hours 48
 jupyter notebook notebooks/
 ```
 
-Notebook order: 01 → 02 → 03 for the original study; 05 → 06 → 07 → 08 for the
-extended research threads; 09 for live validation; 10 for signal stacking.
-Thread D (NB 08) is the most audience-ready standalone artifact.
+Notebook order: [01](notebooks/01_data_exploration.ipynb) → [02](notebooks/02_signal_research.ipynb) → [03](notebooks/03_backtest.ipynb)
+for the original study; [05](notebooks/05_full_year.ipynb) → [06](notebooks/06_dollar_bars.ipynb) → [07](notebooks/07_cross_asset_dollar_bars.ipynb) → [08](notebooks/08_tick_patterns.ipynb)
+for the extended research threads; [09](notebooks/09_paper_trade_analysis.ipynb) for live validation;
+[10](notebooks/10_signal_stacking.ipynb) for signal stacking.
+Thread D ([NB 08](notebooks/08_tick_patterns.ipynb)) is the most audience-ready standalone artifact.
 
 ## Limitations and Open Questions
 
 - **All backtests are taker-side, no queue modeling.** No fill-probability model, no partial fills, no adverse selection correction. Any maker-side PnL estimate from the current harness would be unreliable.
 - **Signed flow is inferred from `is_buyer_maker`**, which is the true aggressor side for `aggTrades` on Binance futures. No reconstruction of book state is attempted.
 - **Cross-exchange basis** — the canonical mid-frequency crypto edge — is not yet tested. Feasible with current data.
-- **Paper-trading gap:** the websocket harness experienced a ~16-hour outage on Apr 12–13 (Binance websocket connectivity issue). Data before and after the gap is intact; NB 09 handles the gap transparently.
+- **Paper-trading gap:** the websocket harness experienced a ~16-hour outage on Apr 12–13 (Binance websocket connectivity issue). Data before and after the gap is intact; [NB 09](notebooks/09_paper_trade_analysis.ipynb) handles the gap transparently.
